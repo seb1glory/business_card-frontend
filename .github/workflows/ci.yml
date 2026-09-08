@@ -7,20 +7,23 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted  # Сборка крутится на твоем железе!
+    runs-on: self-hosted 
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Lowercase Repository Name
-        run: |
-          echo "REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
       - name: Create Docker Auth Config
         run: |
           mkdir -p ~/.docker
           echo '{"auths": {"ghcr.io":{"auth":"'$(echo -n "${{ github.actor }}:${{ secrets.GHCR_TOKEN }}" | base64)'"}}}' > ~/.docker/config.json
+
+      - name: Generate Short SHA Tag
+        id: vars
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          echo "tag=main-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and Push Image via Kaniko
         run: |
@@ -31,5 +34,5 @@ jobs:
             --context=/workspace \
             --dockerfile=/workspace/Dockerfile \
             --destination=ghcr.io/${{ github.repository }}:latest \
-            --destination=ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            --destination=ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }} \
             --cache=true
